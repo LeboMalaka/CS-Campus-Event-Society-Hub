@@ -1,0 +1,54 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --background: #0f0f13;
+  --background-elevated: #17171d;
+  --surface: #1c1c24;
+  --surface-strong: #262634;
+  --purple-primary: #9333ea;
+  --purple-strong: #a855f7;
+  --purple-soft: rgba(168, 85, 247, 0.16);
+  --text-primary: #f5f5f7;
+  --text-muted: #b7b8c5;
+  --border-soft: rgba(147, 51, 234, 0.28);
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  margin: 0;
+  background:
+    radial-gradient(circle at top, rgba(147, 51, 234, 0.2), transparent 30%),
+    var(--background);
+  color: var(--text-primary);
+  font-family: Arial, Helvetica, sans-serif;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+::selection {
+  background: rgba(168, 85, 247, 0.35);
+}
+
+@layer components {
+  .glass-panel {
+    @apply rounded-2xl border border-violet-500/20 bg-bg-card/90 shadow-lg shadow-violet-950/20 backdrop-blur;
+  }
+
+
+  .primary-button {
+    @apply inline-flex items-center justify-center rounded-full bg-violet-600 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-violet-500 focus:outline-none focus:ring-2 focus:ring-violet-400 focus:ring-offset-2 focus:ring-offset-bg-dark;
+  }
+
+
+  .secondary-button {
+    @apply inline-flex items-center justify-center rounded-full border border-violet-500/40 bg-transparent px-5 py-2.5 text-sm font-semibold text-violet-200 transition hover:border-violet-400 hover:bg-violet-500/10 focus:outline-none focus:ring-2 focus:ring-violet-400 focus:ring-offset-2 focus:ring-offset-bg-dark;
+  }
+
+}
