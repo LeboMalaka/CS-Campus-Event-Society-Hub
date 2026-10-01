@@ -6,6 +6,8 @@ import { initDatabase } from './src/db/init-db.js';
 import authRoutes from './src/routes/auth.routes.js';
 import eventRoutes from './src/routes/event.routes.js';
 import rsvpRoutes from './src/routes/rsvp.routes.js';
+import { academicBlocks2026 } from './src/config/academicBlocks.js';
+import { isDatabaseConnectionError } from './src/config/demoStore.js';
 
 dotenv.config();
 
@@ -60,6 +62,13 @@ app.use('/api/auth', authRoutes);
 app.use('/api/events', eventRoutes);
 app.use('/api/rsvps', rsvpRoutes);
 
+app.get('/api/academic-blocks', (_req, res) => {
+  res.json({
+    success: true,
+    data: academicBlocks2026,
+  });
+});
+
 function listenOnAvailablePort(port: number) {
   return new Promise<number>((resolve, reject) => {
     const tryPort = (candidate: number) => {
@@ -89,12 +98,17 @@ async function startServer() {
   try {
     await pool.query('SELECT 1');
     await initDatabase();
-    const actualPort = await listenOnAvailablePort(DEFAULT_PORT);
-    console.log(`Server running on http://localhost:${actualPort}`);
   } catch (error) {
-    console.error('Failed to connect to the database:', error);
-    process.exit(1);
+    if (isDatabaseConnectionError(error)) {
+      console.warn('Database unavailable. Starting in demo mode so event discovery remains available.');
+    } else {
+      console.error('Failed to connect to the database:', error);
+      process.exit(1);
+    }
   }
+
+  const actualPort = await listenOnAvailablePort(DEFAULT_PORT);
+  console.log(`Server running on http://localhost:${actualPort}`);
 }
 
 startServer();

@@ -62,8 +62,8 @@ router.post('/register', async (req, res) => {
     const passwordHash = await bcrypt.hash(password, 10);
 
     const result = await pool.query(
-      `INSERT INTO users (display_name, email, password_hash, role)
-       VALUES ($1, $2, $3, $4)
+      `INSERT INTO users (full_name, display_name, email, password_hash, role)
+       VALUES ($1, $1, $2, $3, $4)
        RETURNING id, display_name AS "displayName", email, role, created_at`,
       [normalizedFullName, email, passwordHash, normalizedRole]
     );
@@ -132,30 +132,6 @@ router.post('/login', async (req, res) => {
   }
 
   const demoUser = findDemoUserByEmail(email);
-  if (demoUser) {
-    const passwordMatches = await bcrypt.compare(password, demoUser.password_hash);
-    if (passwordMatches) {
-      const token = signToken({
-        id: demoUser.id,
-        email: demoUser.email,
-        role: demoUser.role,
-      });
-
-      return res.status(200).json({
-        success: true,
-        data: {
-          user: {
-            id: demoUser.id,
-            displayName: demoUser.display_name,
-            email: demoUser.email,
-            role: demoUser.role,
-          },
-          token,
-        },
-        message: 'Login successful in demo mode.',
-      });
-    }
-  }
 
   try {
     const result = await pool.query(
@@ -164,6 +140,28 @@ router.post('/login', async (req, res) => {
     );
 
     if (!result.rowCount || result.rowCount === 0) {
+      if (demoUser && await bcrypt.compare(password, demoUser.password_hash)) {
+        const token = signToken({
+          id: demoUser.id,
+          email: demoUser.email,
+          role: demoUser.role,
+        });
+
+        return res.status(200).json({
+          success: true,
+          data: {
+            user: {
+              id: demoUser.id,
+              displayName: demoUser.display_name,
+              email: demoUser.email,
+              role: demoUser.role,
+            },
+            token,
+          },
+          message: 'Login successful in demo mode.',
+        });
+      }
+
       return res.status(401).json({
         success: false,
         error: {
@@ -187,7 +185,7 @@ router.post('/login', async (req, res) => {
     }
 
     const token = signToken({
-      id: user.id,
+      id: String(user.id),
       email: user.email,
       role: user.role,
     });

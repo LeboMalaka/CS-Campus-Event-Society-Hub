@@ -1,29 +1,48 @@
 'use client';
 
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
+import { apiRequest } from '@/lib/api';
 
-const societies = [
-  {
-    name: 'Campus Tech Society',
-    focus: 'AI, software, and innovation',
-    events: 8,
-    description: 'Build projects, host workshops, and help students explore modern technology.',
-  },
-  {
-    name: 'Creative Arts Society',
-    focus: 'Design, music, and performance',
-    events: 5,
-    description: 'Bring together student creators for showcases, open mic nights, and collaborative events.',
-  },
-  {
-    name: 'Sports & Wellness Club',
-    focus: 'Sport, fitness, and wellbeing',
-    events: 6,
-    description: 'Run active challenges, wellness initiatives, and community fitness opportunities.',
-  },
-];
+type EventItem = {
+  id: string;
+  title: string;
+  category: string;
+  society_name?: string;
+};
+
+type SocietySummary = {
+  name: string;
+  events: EventItem[];
+};
 
 export default function SocietiesPage() {
+  const [societies, setSocieties] = useState<SocietySummary[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    const loadSocieties = async () => {
+      try {
+        const response = await apiRequest<{ data: EventItem[] }>('/events');
+        const grouped = new Map<string, EventItem[]>();
+
+        for (const event of response.data ?? []) {
+          const name = event.society_name?.trim();
+          if (!name) continue;
+          grouped.set(name, [...(grouped.get(name) ?? []), event]);
+        }
+
+        setSocieties(Array.from(grouped.entries()).map(([name, events]) => ({ name, events })));
+      } catch (_error) {
+        setSocieties([]);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    loadSocieties();
+  }, []);
+
   return (
     <main className="mx-auto max-w-6xl px-4 py-10 sm:px-6 lg:px-8">
       <div className="mb-8">
@@ -31,7 +50,17 @@ export default function SocietiesPage() {
         <h1 className="mt-2 text-3xl font-bold text-white">Society discovery</h1>
       </div>
 
-      <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
+      {isLoading ? (
+        <div className="flex min-h-[220px] items-center justify-center rounded-2xl border border-dashed border-violet-500/30 bg-bg-card p-8 text-slate-400">
+          Loading societies...
+        </div>
+      ) : societies.length === 0 ? (
+        <div className="flex min-h-[220px] flex-col items-center justify-center rounded-2xl border border-dashed border-violet-500/30 bg-bg-card p-8 text-center">
+          <p className="text-xl font-semibold text-white">No societies with events yet</p>
+          <p className="mt-2 text-sm text-slate-400">Societies will appear here after they publish an event.</p>
+        </div>
+      ) : (
+        <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
         {societies.map((society) => (
           <article key={society.name} className="rounded-2xl border border-violet-500/20 bg-bg-card p-5 shadow-glow">
             <div className="mb-4 flex items-center justify-between gap-3">
@@ -39,20 +68,21 @@ export default function SocietiesPage() {
                 {society.name.charAt(0)}
               </div>
               <span className="rounded-full border border-violet-500/30 bg-violet-500/10 px-2 py-1 text-[10px] font-medium uppercase tracking-[0.16em] text-violet-200">
-                {society.events} events
+                {society.events.length} {society.events.length === 1 ? 'event' : 'events'}
               </span>
             </div>
 
             <h2 className="text-xl font-semibold text-white">{society.name}</h2>
-            <p className="mt-2 text-sm text-violet-200">{society.focus}</p>
-            <p className="mt-3 text-sm leading-6 text-slate-300">{society.description}</p>
+            <p className="mt-2 text-sm text-violet-200">{society.events.map((event) => event.category).filter((category, index, categories) => categories.indexOf(category) === index).join(', ')}</p>
+            <p className="mt-3 text-sm leading-6 text-slate-300">{society.events.slice(0, 3).map((event) => event.title).join(' • ')}</p>
 
-            <Link href="/events" className="mt-5 inline-flex rounded-full border border-violet-500/40 bg-transparent px-4 py-2 text-sm font-medium text-violet-200 transition hover:bg-violet-500/10">
+            <Link href={`/events?search=${encodeURIComponent(society.name)}`} className="mt-5 inline-flex rounded-full border border-violet-500/40 bg-transparent px-4 py-2 text-sm font-medium text-violet-200 transition hover:bg-violet-500/10">
               View events
             </Link>
           </article>
         ))}
-      </div>
+        </div>
+      )}
     </main>
   );
 }

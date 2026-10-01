@@ -8,10 +8,13 @@ import Link from 'next/link';
 
 interface SocietyEvent {
   id: string;
+  creator_id: string;
   title: string;
   start_time: string;
   location: string;
   category: string;
+  status?: 'published' | 'cancelled';
+  description?: string;
 }
 
 interface Attendee {
@@ -24,8 +27,38 @@ export default function DashboardPage() {
   const { user } = useAuth();
   const [events, setEvents] = useState<SocietyEvent[]>([]);
   const [stats, setStats] = useState({ published: 0, rsvps: 0 });
+  const [rsvpCounts, setRsvpCounts] = useState<Record<string, number>>({});
   const [isLoading, setIsLoading] = useState(true);
+  const [cancellingEventId, setCancellingEventId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+
+  const cancelEvent = async (event: SocietyEvent) => {
+    if (!window.confirm(`Cancel "${event.title}"? Students will no longer be able to find or RSVP to it.`)) {
+      return;
+    }
+
+    setCancellingEventId(event.id);
+    setError(null);
+
+    try {
+      await apiRequest(`/events/${event.id}`, { method: 'DELETE' });
+      setEvents((currentEvents) => currentEvents.filter((currentEvent) => currentEvent.id !== event.id));
+      setRsvpCounts((currentCounts) => {
+        const nextCounts = { ...currentCounts };
+        delete nextCounts[event.id];
+        return nextCounts;
+      });
+      setStats((currentStats) => ({
+        ...currentStats,
+        published: Math.max(0, currentStats.published - 1),
+        rsvps: Math.max(0, currentStats.rsvps - (rsvpCounts[event.id] || 0)),
+      }));
+    } catch (err: any) {
+      setError(err.message || 'Unable to cancel this event.');
+    } finally {
+      setCancellingEventId(null);
+    }
+  };
 
   useEffect(() => {
     const fetchSocietyData = async () => {
@@ -34,18 +67,20 @@ export default function DashboardPage() {
       try {
         // Note: In a real scenario, we might have a specific /api/events/my-society
         // For now, we fetch all and filter by user.id on frontend, or rely on backend
-        const response = await apiRequest<{ data: any[] }>('/events');
-        const myEvents = response.data?.filter((e) => e.creator_id === user?.id) || [];
+        const response = await apiRequest<{ data: SocietyEvent[] }>('/events?includeCancelled=true');
+        const myEvents = response.data?.filter((e) => String(e.creator_id) === String(user?.id)) || [];
         setEvents(myEvents);
 
-        // Calculate basic stats
-        let totalRsvps = 0;
-        // In a production app, we'd have a summary endpoint.
-        // Here we can't easily fetch all rsvps for all events without many calls.
-        // We will show a simplified version.
+        const attendeeLists = await Promise.all(
+          myEvents.map((event) => apiRequest<{ data: Attendee[] }>(`/rsvps/event/${event.id}`))
+        );
+        setRsvpCounts(Object.fromEntries(
+          myEvents.map((event, index) => [event.id, attendeeLists[index].data?.length || 0])
+        ));
+        const totalRsvps = attendeeLists.reduce((total, result) => total + (result.data?.length || 0), 0);
         setStats({
           published: myEvents.length,
-          rsvps: 0, // Would require a summary endpoint
+          rsvps: totalRsvps,
         });
       } catch (err: any) {
         setError(err.message || 'Failed to fetch dashboard data');
@@ -124,13 +159,28 @@ export default function DashboardPage() {
                         {new Date(event.start_time).toLocaleDateString('en-GB')} • {event.location}
                       </p>
                     </div>
-                    <div className="flex gap-2">
-                      <CustomButton variant="secondary" size="sm" onClick={() => window.location.href = `/events/${event.id}`}>
-                        View Details
-                      </CustomButton>
-                      <CustomButton variant="ghost" size="sm">
-                        Manage
-                      </CustomButton>
+                    <div className="flex flex-wrap gap-2">
+                      <Link href={`/events/${event.id}`}>
+                        <CustomButton variant="secondary" size="sm">View Details</CustomButton>
+                      </Link>
+                      <span className="rounded-full border border-emerald-500/30 bg-emerald-500/10 px-3 py-2 text-xs font-semibold text-emerald-200">
+                        {rsvpCounts[event.id] || 0} RSVPs
+                      </span>
+                      {event.status === 'cancelled' ? (
+                        <span className="rounded-full border border-red-500/40 bg-red-500/10 px-3 py-2 text-xs font-semibold text-red-200">
+                          Cancelled
+                        </span>
+                      ) : (
+                        <CustomButton
+                          variant="secondary"
+                          size="sm"
+                          onClick={() => cancelEvent(event)}
+                          disabled={cancellingEventId === event.id}
+                          className="border-red-500/40 text-red-300 hover:border-red-400 hover:text-red-200"
+                        >
+                          {cancellingEventId === event.id ? 'Cancelling...' : 'Cancel event'}
+                        </CustomButton>
+                      )}
                     </div>
                   </div>
                 ))}

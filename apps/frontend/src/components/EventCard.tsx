@@ -1,7 +1,13 @@
+ 'use client';
+
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
+import { useState } from 'react';
 import { CustomButton } from './CustomButton';
 import { CategoryPill } from './CategoryPill';
 import { CategoryVariant } from './CategoryPill';
+import { useAuth } from '@/context/AuthContext';
+import { apiRequest } from '@/lib/api';
 
 type EventCardProps = {
   title: string;
@@ -10,7 +16,7 @@ type EventCardProps = {
   category: string;
   host: string;
   description: string;
-  id?: string;
+  id: string;
   href?: string;
 };
 
@@ -31,9 +37,41 @@ export default function EventCard({
   category,
   host,
   description,
-  id = '1',
+  id,
   href,
 }: EventCardProps) {
+  const router = useRouter();
+  const { user } = useAuth();
+  const [isRsvping, setIsRsvping] = useState(false);
+  const [rsvpMessage, setRsvpMessage] = useState('');
+
+  const handleRsvp = async () => {
+    if (!user) {
+      router.push('/login/student');
+      return;
+    }
+
+    if (user.role !== 'student') {
+      setRsvpMessage('Students only');
+      return;
+    }
+
+    setIsRsvping(true);
+    setRsvpMessage('');
+
+    try {
+      await apiRequest('/rsvps', {
+        method: 'POST',
+        body: JSON.stringify({ eventId: id }),
+      });
+      setRsvpMessage('RSVP confirmed');
+    } catch (error: any) {
+      setRsvpMessage(error.message || 'Unable to RSVP');
+    } finally {
+      setIsRsvping(false);
+    }
+  };
+
   return (
     <article className="group overflow-hidden rounded-2xl border border-violet-500/20 bg-bg-card shadow-lg shadow-violet-950/30 transition-all duration-300 hover:-translate-y-1 hover:border-brand-400/50 hover:shadow-glow">
       <div className="h-40 bg-gradient-to-br from-violet-700 via-purple-600 to-indigo-800 relative overflow-hidden">
@@ -66,11 +104,12 @@ export default function EventCard({
                 View
               </CustomButton>
             </Link>
-            <CustomButton variant="primary" size="sm">
-              RSVP
+            <CustomButton variant="primary" size="sm" onClick={handleRsvp} disabled={isRsvping}>
+              {isRsvping ? 'Saving...' : 'RSVP'}
             </CustomButton>
           </div>
         </div>
+        {rsvpMessage ? <p className="px-5 pb-4 text-right text-xs text-violet-200">{rsvpMessage}</p> : null}
       </div>
     </article>
   );

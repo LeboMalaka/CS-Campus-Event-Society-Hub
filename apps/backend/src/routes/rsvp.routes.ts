@@ -29,7 +29,10 @@ router.post('/', verifyTokenMiddleware, authorizeRole(['student']), async (req: 
 
   try {
     // Verify event exists
-    const eventResult = await pool.query('SELECT id FROM events WHERE id = $1', [eventId]);
+    const eventResult = await pool.query(
+      `SELECT id FROM events WHERE id = $1 AND (status IS NULL OR LOWER(status) <> 'cancelled')`,
+      [eventId]
+    );
     if (!eventResult.rowCount || eventResult.rowCount === 0) {
       return res.status(404).json({
         success: false,
@@ -212,7 +215,7 @@ router.get('/event/:eventId', verifyTokenMiddleware, authorizeRole(['society']),
     if (!eventCheck.rowCount || eventCheck.rowCount === 0) {
       return res.status(404).json({ success: false, error: { code: 'EVENT_NOT_FOUND', message: 'Event not found.' } });
     }
-    if (eventCheck.rows[0].creator_id !== req.user?.id) {
+    if (String(eventCheck.rows[0].creator_id) !== String(req.user?.id)) {
       return res.status(403).json({ success: false, error: { code: 'FORBIDDEN', message: 'You can only view attendees for your own events.' } });
     }
 
@@ -237,7 +240,7 @@ router.get('/event/:eventId', verifyTokenMiddleware, authorizeRole(['society']),
         return res.status(404).json({ success: false, error: { code: 'EVENT_NOT_FOUND', message: 'Event not found.' } });
       }
 
-      if (event.creator_id !== req.user?.id) {
+      if (String(event.creator_id) !== String(req.user?.id)) {
         return res.status(403).json({ success: false, error: { code: 'FORBIDDEN', message: 'You can only view attendees for your own events.' } });
       }
 

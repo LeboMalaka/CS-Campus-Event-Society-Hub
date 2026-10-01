@@ -13,7 +13,7 @@ export type User = {
 type AuthContextValue = {
   user: User | null;
   status: 'loading' | 'ready';
-  login: (email: string, password: string) => Promise<void>;
+  login: (email: string, password: string, expectedRole?: 'student' | 'society') => Promise<void>;
   register: (displayName: string, email: string, password: string, role: 'student' | 'society') => Promise<void>;
   logout: () => void;
 };
@@ -39,7 +39,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   }, []);
 
-  const login = async (email: string, password: string) => {
+  const login = async (email: string, password: string, expectedRole?: 'student' | 'society') => {
     const response = await apiRequest<{ data: { user: User; token: string } }>(
       '/auth/login',
       {
@@ -53,6 +53,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     if (!nextUser || !token) {
       throw new Error('Invalid login response from server.');
+    }
+
+    if (expectedRole && nextUser.role !== expectedRole) {
+      throw new Error(`This account is registered as a ${nextUser.role}, not a ${expectedRole}.`);
     }
 
     localStorage.setItem('campus_user', JSON.stringify(nextUser));

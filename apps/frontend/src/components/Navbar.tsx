@@ -92,11 +92,14 @@ export default function Navbar() {
             </>
           ) : (
             <>
-              <Link href="/login">
-                <CustomButton variant="secondary" size="sm">Log in</CustomButton>
+              <Link href="/login/student">
+                <CustomButton variant="secondary" size="sm">Student login</CustomButton>
+              </Link>
+              <Link href="/login/society">
+                <CustomButton variant="primary" size="sm">Society login</CustomButton>
               </Link>
               <Link href="/register">
-                <CustomButton variant="primary" size="sm">Sign up</CustomButton>
+                <CustomButton variant="secondary" size="sm">Sign up</CustomButton>
               </Link>
             </>
           )}
@@ -134,11 +137,14 @@ export default function Navbar() {
                 </CustomButton>
               ) : (
                 <div className="flex gap-2">
-                  <Link href="/login" className="w-full">
-                    <CustomButton variant="secondary" size="md" className="w-full">Log in</CustomButton>
+                  <Link href="/login/student" className="w-full">
+                    <CustomButton variant="secondary" size="md" className="w-full">Student login</CustomButton>
+                  </Link>
+                  <Link href="/login/society" className="w-full">
+                    <CustomButton variant="primary" size="md" className="w-full">Society login</CustomButton>
                   </Link>
                   <Link href="/register" className="w-full">
-                    <CustomButton variant="primary" size="md" className="w-full">Sign up</CustomButton>
+                    <CustomButton variant="secondary" size="md" className="w-full">Sign up</CustomButton>
                   </Link>
                 </div>
               )}

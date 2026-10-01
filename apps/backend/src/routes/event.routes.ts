@@ -2,19 +2,21 @@ import { Router } from 'express';
 import { pool } from '../config/db.js';
 import {
   createDemoEvent,
-  deleteDemoEvent,
+  cancelDemoEvent,
   getDemoEventById,
   isDatabaseConnectionError,
   listDemoEvents,
   updateDemoEvent,
 } from '../config/demoStore.js';
 import { AuthenticatedRequest, verifyTokenMiddleware, authorizeRole } from '../middleware/auth.js';
+import { checkAcademicCalendarConflict, findAcademicBlocks } from '../config/academicBlocks.js';
+import { categorizeEvent } from '../config/eventCategories.js';
 
 const router = Router();
 
 // GET /api/events - List events with filtering and search
 router.get('/', async (req, res) => {
-  const { category, search } = req.query;
+  const { category, search, includeCancelled } = req.query;
 
   let query = `
     SELECT e.*, u.display_name AS society_name
@@ -25,13 +27,17 @@ router.get('/', async (req, res) => {
   const conditions: string[] = [];
   const values: unknown[] = [];
 
+  if (includeCancelled !== 'true') {
+    conditions.push(`(e.status IS NULL OR LOWER(e.status) <> 'cancelled')`);
+  }
+
   if (category && category !== 'all') {
-    conditions.push(`e.category = $${values.length + 1}`);
-    values.push(String(category));
+    conditions.push(`LOWER(e.category) = LOWER($${values.length + 1})`);
+    values.push(String(category).trim());
   }
 
   if (search && typeof search === 'string' && search.trim() !== '') {
-    conditions.push(`(e.title ILIKE $${values.length + 1} OR e.description ILIKE $${values.length + 1})`);
+    conditions.push(`(e.title ILIKE $${values.length + 1} OR e.description ILIKE $${values.length + 1} OR u.display_name ILIKE $${values.length + 1})`);
     values.push(`%${search.trim()}%`);
   }
 
@@ -54,6 +60,7 @@ router.get('/', async (req, res) => {
       const searchText = typeof search === 'string' ? search.trim().toLowerCase() : '';
 
       const filtered = events.filter((event) => {
+        if (includeCancelled !== 'true' && event.status === 'cancelled') return false;
         const matchesCategory = selectedCategory === 'all' || event.category.toLowerCase() === selectedCategory;
         const matchesSearch = !searchText ||
           event.title.toLowerCase().includes(searchText) ||
@@ -158,19 +165,57 @@ router.post('/', verifyTokenMiddleware, authorizeRole(['society']), async (req: 
     });
   }
 
+  const normalizedCategory = categorizeEvent(title, description, category);
+
+  const startDate = new Date(startTime);
+  const endDate = endTime ? new Date(endTime) : null;
+  if (Number.isNaN(startDate.getTime()) || startDate <= new Date()) {
+    return res.status(400).json({
+      success: false,
+      error: {
+        code: 'VALIDATION_ERROR',
+        message: 'Event start time must be in the future.',
+      },
+    });
+  }
+
+  if (endDate && (Number.isNaN(endDate.getTime()) || endDate <= startDate)) {
+    return res.status(400).json({
+      success: false,
+      error: {
+        code: 'VALIDATION_ERROR',
+        message: 'Event end time must be after the start time.',
+      },
+    });
+  }
+
+  const calendarConflict = checkAcademicCalendarConflict(startDate, endDate || startDate);
+  if (calendarConflict) {
+    return res.status(409).json({
+      success: false,
+      error: {
+        code: 'ACADEMIC_CALENDAR_CONFLICT',
+        message: `Events cannot be scheduled during ${calendarConflict.block_name} (${calendarConflict.start_date} to ${calendarConflict.end_date}).`,
+      },
+      academic_block: calendarConflict,
+    });
+  }
+
+  const academicBlocks = findAcademicBlocks(startTime, endTime);
+
   try {
     const result = await pool.query(
       `INSERT INTO events (
-        creator_id, title, description, category, start_time, end_time,
-        location
+        society_id, title, description, category, event_date, end_date,
+        location, creator_id, start_time, end_time
       )
-       VALUES ($1, $2, $3, $4, $5, $6, $7)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $1, $5, $6)
        RETURNING *`,
       [
         req.user?.id,
         title,
         description,
-        category,
+        normalizedCategory,
         startTime,
         endTime || null,
         location,
@@ -180,6 +225,7 @@ router.post('/', verifyTokenMiddleware, authorizeRole(['society']), async (req: 
     return res.status(201).json({
       success: true,
       data: result.rows[0],
+      academic_blocks: academicBlocks,
       message: 'Event created successfully.',
     });
   } catch (error) {
@@ -188,7 +234,7 @@ router.post('/', verifyTokenMiddleware, authorizeRole(['society']), async (req: 
         creator_id: req.user?.id || 'demo-society-1',
         title,
         description,
-        category,
+        category: normalizedCategory,
         location,
         start_time: startTime,
         end_time: endTime || null,
@@ -197,6 +243,7 @@ router.post('/', verifyTokenMiddleware, authorizeRole(['society']), async (req: 
       return res.status(201).json({
         success: true,
         data: created,
+        academic_blocks: academicBlocks,
         message: 'Event created successfully in demo mode.',
       });
     }
@@ -216,6 +263,7 @@ router.post('/', verifyTokenMiddleware, authorizeRole(['society']), async (req: 
 router.put('/:id', verifyTokenMiddleware, authorizeRole(['society']), async (req: AuthenticatedRequest, res) => {
   const { id } = req.params;
   const { title, description, category, startTime, endTime, location } = req.body;
+  const normalizedCategory = category ? categorizeEvent(title || '', description || '', category) : undefined;
 
   try {
     // Check ownership
@@ -223,7 +271,7 @@ router.put('/:id', verifyTokenMiddleware, authorizeRole(['society']), async (req
     if (!check.rowCount || check.rowCount === 0) {
       return res.status(404).json({ success: false, error: { code: 'EVENT_NOT_FOUND', message: 'Event not found.' } });
     }
-    if (check.rows[0].creator_id !== req.user?.id) {
+    if (String(check.rows[0].creator_id) !== String(req.user?.id)) {
       return res.status(403).json({ success: false, error: { code: 'FORBIDDEN', message: 'You can only edit your own events.' } });
     }
 
@@ -237,7 +285,7 @@ router.put('/:id', verifyTokenMiddleware, authorizeRole(['society']), async (req
            location = COALESCE($6, location)
        WHERE id = $7
        RETURNING *`,
-      [title, description, category, startTime, endTime, location, id]
+      [title, description, normalizedCategory, startTime, endTime, location, id]
     );
 
     return res.status(200).json({
@@ -253,14 +301,14 @@ router.put('/:id', verifyTokenMiddleware, authorizeRole(['society']), async (req
         return res.status(404).json({ success: false, error: { code: 'EVENT_NOT_FOUND', message: 'Event not found.' } });
       }
 
-      if (existing.creator_id !== req.user?.id) {
+      if (String(existing.creator_id) !== String(req.user?.id)) {
         return res.status(403).json({ success: false, error: { code: 'FORBIDDEN', message: 'You can only edit your own events.' } });
       }
 
       const updated = updateDemoEvent(eventId, {
         title: title ?? existing.title,
         description: description ?? existing.description,
-        category: category ?? existing.category,
+        category: normalizedCategory ?? existing.category,
         location: location ?? existing.location,
         start_time: startTime ?? existing.start_time,
         end_time: endTime ?? existing.end_time,
@@ -287,15 +335,21 @@ router.delete('/:id', verifyTokenMiddleware, authorizeRole(['society']), async (
     if (!check.rowCount || check.rowCount === 0) {
       return res.status(404).json({ success: false, error: { code: 'EVENT_NOT_FOUND', message: 'Event not found.' } });
     }
-    if (check.rows[0].creator_id !== req.user?.id) {
+    if (String(check.rows[0].creator_id) !== String(req.user?.id)) {
       return res.status(403).json({ success: false, error: { code: 'FORBIDDEN', message: 'You can only delete your own events.' } });
     }
 
-    await pool.query('DELETE FROM events WHERE id = $1', [id]);
+    await pool.query(
+      `UPDATE events
+       SET status = 'cancelled'
+       WHERE id = $1`,
+      [id]
+    );
+    await pool.query('DELETE FROM rsvps WHERE event_id = $1', [id]);
 
     return res.status(200).json({
       success: true,
-      message: 'Event deleted successfully.',
+      message: 'Event cancelled successfully.',
     });
   } catch (error) {
     if (isDatabaseConnectionError(error)) {
@@ -305,14 +359,14 @@ router.delete('/:id', verifyTokenMiddleware, authorizeRole(['society']), async (
         return res.status(404).json({ success: false, error: { code: 'EVENT_NOT_FOUND', message: 'Event not found.' } });
       }
 
-      if (existing.creator_id !== req.user?.id) {
+      if (String(existing.creator_id) !== String(req.user?.id)) {
         return res.status(403).json({ success: false, error: { code: 'FORBIDDEN', message: 'You can only delete your own events.' } });
       }
 
-      deleteDemoEvent(eventId);
+      cancelDemoEvent(eventId);
       return res.status(200).json({
         success: true,
-        message: 'Event deleted successfully in demo mode.',
+        message: 'Event cancelled successfully in demo mode.',
       });
     }
 

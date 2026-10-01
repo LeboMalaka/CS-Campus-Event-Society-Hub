@@ -1,4 +1,5 @@
 import bcrypt from 'bcryptjs';
+import { categorizeEvent } from './eventCategories.js';
 
 export type DemoRole = 'student' | 'society';
 
@@ -20,6 +21,7 @@ export type DemoEvent = {
   location: string;
   start_time: string;
   end_time: string | null;
+  status: 'published' | 'cancelled';
   created_at: string;
 };
 
@@ -52,28 +54,45 @@ export const demoUsers: DemoUser[] = [
 
 export const demoEvents: DemoEvent[] = [
   {
-    id: 'demo-event-1',
+    id: 'demo-event-academic-1',
     creator_id: 'demo-society-1',
-    title: 'AI & Innovation Workshop',
-    description: 'A hands-on session exploring the latest AI tools and practical applications for student projects.',
+    title: 'Study Skills Workshop',
+    description: 'Practical study planning and exam preparation for students.',
     category: 'Workshop',
-    location: 'Innovation Lab, Engineering Block',
-    start_time: new Date(Date.now() + 1000 * 60 * 60 * 24 * 2).toISOString(),
-    end_time: new Date(Date.now() + 1000 * 60 * 60 * 24 * 2 + 1000 * 60 * 60 * 2).toISOString(),
+    location: 'Library Learning Lab',
+    start_time: '2026-10-08T15:00:00.000Z',
+    end_time: '2026-10-08T17:00:00.000Z',
+    status: 'published' as const,
     created_at: now(),
   },
   {
-    id: 'demo-event-2',
+    id: 'demo-event-social-1',
     creator_id: 'demo-society-1',
-    title: 'Campus Social Mixer',
-    description: 'Meet new people, network with student clubs, and enjoy an evening of music and activities.',
+    title: 'Campus Welcome Picnic',
+    description: 'A relaxed social afternoon for students to meet and connect.',
     category: 'Social',
-    location: 'Student Union Atrium',
-    start_time: new Date(Date.now() + 1000 * 60 * 60 * 24 * 5).toISOString(),
-    end_time: new Date(Date.now() + 1000 * 60 * 60 * 24 * 5 + 1000 * 60 * 60 * 3).toISOString(),
+    location: 'Main Quad',
+    start_time: '2026-10-10T12:00:00.000Z',
+    end_time: '2026-10-10T16:00:00.000Z',
+    status: 'published' as const,
     created_at: now(),
   },
-];
+  {
+    id: 'demo-event-sports-1',
+    creator_id: 'demo-society-1',
+    title: 'Interfaculty Football Match',
+    description: 'A friendly football tournament between campus faculties.',
+    category: 'Sports',
+    location: 'TUT Sports Ground',
+    start_time: '2026-10-14T13:00:00.000Z',
+    end_time: '2026-10-14T17:00:00.000Z',
+    status: 'published' as const,
+    created_at: now(),
+  },
+].map((event) => ({
+  ...event,
+  category: categorizeEvent(event.title, event.description, event.category),
+}));
 
 export const demoRsvps: DemoRsvp[] = [];
 
@@ -83,7 +102,7 @@ export function isDatabaseConnectionError(error: any): boolean {
   const message = String(error.message || '').toLowerCase();
   const code = String(error.code || '').toUpperCase();
 
-  return code === 'ETIMEDOUT' || code === 'ENETUNREACH' || code === 'ECONNREFUSED' || code === 'ECONNRESET' ||
+  return code === 'ETIMEDOUT' || code === 'ENETUNREACH' || code === 'ECONNREFUSED' || code === 'ECONNRESET' || code === 'ENOTFOUND' || code === 'EAI_AGAIN' || code === 'ENOENT' ||
     message.includes('timeout') ||
     message.includes('connect') ||
     message.includes('network') ||
@@ -143,10 +162,26 @@ export function createDemoEvent(data: {
     location: data.location,
     start_time: data.start_time,
     end_time: data.end_time || null,
+    status: 'published',
     created_at: now(),
   };
 
   demoEvents.push(event);
+  return {
+    ...event,
+    society_name: getSocietyName(event.creator_id),
+  };
+}
+
+export function cancelDemoEvent(eventId: string) {
+  const event = demoEvents.find((entry) => entry.id === eventId);
+  if (!event) return null;
+
+  event.status = 'cancelled';
+  for (let i = demoRsvps.length - 1; i >= 0; i -= 1) {
+    if (demoRsvps[i].event_id === eventId) demoRsvps.splice(i, 1);
+  }
+
   return {
     ...event,
     society_name: getSocietyName(event.creator_id),

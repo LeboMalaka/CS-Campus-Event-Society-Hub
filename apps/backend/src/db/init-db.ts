@@ -1,5 +1,6 @@
 import pg from 'pg';
 import dotenv from 'dotenv';
+import { categorizeEvent } from '../config/eventCategories.js';
 
 dotenv.config();
 
@@ -47,6 +48,28 @@ export async function initDatabase() {
     if (!eventColumnNames.has('end_time')) {
       await pool.query(`ALTER TABLE events ADD COLUMN IF NOT EXISTS end_time TIMESTAMPTZ;`);
       await pool.query(`UPDATE events SET end_time = end_date WHERE end_time IS NULL AND end_date IS NOT NULL;`);
+    }
+
+    if (!eventColumnNames.has('status')) {
+      await pool.query(`ALTER TABLE events ADD COLUMN IF NOT EXISTS status VARCHAR(30) DEFAULT 'published';`);
+      await pool.query(`UPDATE events SET status = 'published' WHERE status IS NULL;`);
+    }
+
+    const events = await pool.query('SELECT id, title, description, category FROM events');
+    for (const event of events.rows) {
+      const category = categorizeEvent(event.title, event.description, event.category);
+      if (category !== event.category) {
+        await pool.query('UPDATE events SET category = $1 WHERE id = $2', [category, event.id]);
+      }
+    }
+
+    const birthdayEvent = await pool.query(
+      `SELECT id FROM events WHERE title = $1`,
+      ["Lebo's birthday celebration"]
+    );
+    for (const event of birthdayEvent.rows) {
+      await pool.query('DELETE FROM rsvps WHERE event_id = $1', [event.id]);
+      await pool.query('DELETE FROM events WHERE id = $1', [event.id]);
     }
 
     await pool.query(`

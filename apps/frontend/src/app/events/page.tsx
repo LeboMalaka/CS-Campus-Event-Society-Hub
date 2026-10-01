@@ -21,13 +21,20 @@ type EventItem = {
 export default function EventsPage() {
   const { user } = useAuth();
   const [selectedCategory, setSelectedCategory] = useState('All');
+  const [search, setSearch] = useState('');
   const [events, setEvents] = useState<EventItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     const loadEvents = async () => {
       try {
-        const response = await apiRequest<{ data: EventItem[] }>('/events');
+        const query = new URLSearchParams();
+        if (selectedCategory !== 'All') query.set('category', selectedCategory);
+        if (search.trim()) query.set('search', search.trim());
+
+        const response = await apiRequest<{ data: EventItem[] }>(
+          `/events${query.toString() ? `?${query.toString()}` : ''}`
+        );
         setEvents(response.data ?? []);
       } catch (_error) {
         setEvents([]);
@@ -37,13 +44,9 @@ export default function EventsPage() {
     };
 
     loadEvents();
-  }, []);
+  }, [search, selectedCategory]);
 
-  const filteredEvents = useMemo(() => {
-    return selectedCategory === 'All'
-      ? events
-      : events.filter((event) => event.category === selectedCategory);
-  }, [events, selectedCategory]);
+  const filteredEvents = useMemo(() => events, [events]);
 
   return (
     <main className="mx-auto max-w-7xl px-4 py-10 sm:px-6 lg:px-8">
@@ -60,6 +63,14 @@ export default function EventsPage() {
       </div>
 
       <div className="mb-8">
+        <label htmlFor="event-search" className="sr-only">Search events</label>
+        <input
+          id="event-search"
+          value={search}
+          onChange={(event) => setSearch(event.target.value)}
+          placeholder="Search by event title or keyword"
+          className="mb-4 w-full rounded-xl border border-slate-700 bg-bg-card px-4 py-3 text-white outline-none placeholder:text-slate-500 focus:border-violet-500"
+        />
         <CategoryFilter selected={selectedCategory} onSelect={setSelectedCategory} />
       </div>
 
@@ -76,6 +87,7 @@ export default function EventsPage() {
           {filteredEvents.map((event) => (
             <EventCard
               key={event.id}
+              id={event.id}
               title={event.title}
               date={new Date(event.start_time).toLocaleDateString('en-GB', {
                 day: 'numeric',

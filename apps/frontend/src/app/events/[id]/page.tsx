@@ -1,6 +1,6 @@
 'use client';
 
-import { useParams } from 'next/navigation';
+import { useParams, useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import { apiRequest } from '@/lib/api';
@@ -8,23 +8,27 @@ import { CustomButton } from '@/components/CustomButton';
 
 type EventDetail = {
   id: string;
+  creator_id: string | number;
   title: string;
   category: string;
-  host: string;
+  society_name?: string;
   description: string;
   start_time: string;
   end_time: string | null;
   location: string;
+  status?: 'published' | 'cancelled';
 };
 
 export default function EventDetailsPage() {
   const params = useParams();
+  const router = useRouter();
   const { user } = useAuth();
   const eventId = typeof params?.id === 'string' ? params.id : '';
 
   const [event, setEvent] = useState<EventDetail | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isPending, setIsPending] = useState(false);
+  const [isCancelling, setIsCancelling] = useState(false);
   const [rsvpState, setRsvpState] = useState<'idle' | 'rsvped' | 'not-rsvped'>('idle');
   const [message, setMessage] = useState('');
 
@@ -88,6 +92,23 @@ export default function EventDetailsPage() {
     }
   };
 
+  const handleCancelEvent = async () => {
+    if (!event || !window.confirm('Cancel this event? Students will no longer be able to find or RSVP to it.')) {
+      return;
+    }
+
+    setIsCancelling(true);
+    setMessage('');
+
+    try {
+      await apiRequest(`/events/${event.id}`, { method: 'DELETE' });
+      router.push('/dashboard');
+    } catch (error: any) {
+      setMessage(error.message || 'Unable to cancel this event.');
+      setIsCancelling(false);
+    }
+  };
+
   if (isLoading) {
     return (
       <main className="mx-auto max-w-6xl px-4 py-12 text-center">
@@ -120,7 +141,7 @@ export default function EventDetailsPage() {
               <span className="rounded-full border border-violet-500/40 bg-violet-500/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.16em] text-violet-200">
                 {event.category}
               </span>
-              <span className="text-sm text-slate-400">Hosted by {event.host}</span>
+              <span className="text-sm text-slate-400">Hosted by {event.society_name || 'Campus Society'}</span>
             </div>
 
             <h1 className="text-3xl font-bold text-white sm:text-4xl">{event.title}</h1>
@@ -159,7 +180,9 @@ export default function EventDetailsPage() {
 
           <aside className="rounded-2xl border border-violet-500/20 bg-bg-dark p-5">
             <p className="text-sm text-slate-400">Event Status</p>
-            <p className="mt-2 text-2xl font-bold text-white">Active</p>
+            <p className={`mt-2 text-2xl font-bold ${event.status === 'cancelled' ? 'text-red-300' : 'text-white'}`}>
+              {event.status === 'cancelled' ? 'Cancelled' : 'Active'}
+            </p>
 
             {user ? (
               <div className="mt-6 space-y-3">
@@ -182,6 +205,17 @@ export default function EventDetailsPage() {
                 Log in to RSVP for this event.
               </div>
             )}
+
+            {user?.role === 'society' && String(user.id) === String(event.creator_id) ? (
+              <CustomButton
+                variant="secondary"
+                className="mt-3 w-full border-red-500/40 text-red-300 hover:border-red-400 hover:text-red-200"
+                onClick={handleCancelEvent}
+                disabled={isCancelling}
+              >
+                {isCancelling ? 'Cancelling...' : 'Cancel event'}
+              </CustomButton>
+            ) : null}
 
             <CustomButton variant="secondary" className="mt-3 w-full">
               Share event

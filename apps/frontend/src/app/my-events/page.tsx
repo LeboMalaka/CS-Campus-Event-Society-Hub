@@ -19,6 +19,10 @@ export default function MyEventsPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  const now = new Date();
+  const upcomingEvents = events.filter((event) => new Date(event.start_time) >= now);
+  const pastEvents = events.filter((event) => new Date(event.start_time) < now);
+
   useEffect(() => {
     const fetchMyEvents = async () => {
       setIsLoading(true);
@@ -59,7 +63,7 @@ export default function MyEventsPage() {
     <main className="mx-auto max-w-5xl px-4 py-10 sm:px-6 lg:px-8">
       <div className="mb-8">
         <p className="text-xs font-semibold uppercase tracking-[0.28em] text-violet-300">My events</p>
-        <h1 className="mt-2 text-3xl font-bold text-white">Upcoming RSVPs</h1>
+        <h1 className="mt-2 text-3xl font-bold text-white">My attendance</h1>
       </div>
 
       {isLoading ? (
@@ -79,8 +83,12 @@ export default function MyEventsPage() {
           <p className="mt-2 text-sm text-slate-400">Explore events and RSVP to start your campus journey!</p>
         </div>
       ) : (
-        <div className="space-y-4">
-          {events.map((event) => (
+        <div className="space-y-8">
+          <section>
+            <h2 className="mb-4 text-xl font-semibold text-white">Upcoming RSVPs</h2>
+            {upcomingEvents.length === 0 ? (
+              <p className="rounded-xl border border-dashed border-slate-700 p-5 text-sm text-slate-400">No upcoming RSVPs.</p>
+            ) : <div className="space-y-4">{upcomingEvents.map((event) => (
             <div key={event.id} className="flex flex-col gap-4 rounded-2xl border border-violet-500/20 bg-bg-card p-5 sm:flex-row sm:items-center sm:justify-between">
               <div>
                 <h2 className="text-xl font-semibold text-white">{event.title}</h2>
@@ -106,7 +114,21 @@ export default function MyEventsPage() {
                 </CustomButton>
               </div>
             </div>
-          ))}
+            ))}</div>}
+          </section>
+
+          <section>
+            <h2 className="mb-4 text-xl font-semibold text-white">Past attendance</h2>
+            {pastEvents.length === 0 ? (
+              <p className="rounded-xl border border-dashed border-slate-700 p-5 text-sm text-slate-400">No past events yet.</p>
+            ) : <div className="space-y-4">{pastEvents.map((event) => (
+              <div key={event.id} className="rounded-2xl border border-slate-700 bg-bg-card p-5">
+                <h3 className="text-lg font-semibold text-white">{event.title}</h3>
+                <p className="mt-1 text-sm text-slate-400">{new Date(event.start_time).toLocaleDateString('en-GB')} • {event.location}</p>
+                <span className="mt-4 inline-flex rounded-full border border-slate-600 px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em] text-slate-300">RSVP recorded</span>
+              </div>
+            ))}</div>}
+          </section>
         </div>
       )}
     </main>

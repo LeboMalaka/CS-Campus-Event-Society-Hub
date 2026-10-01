@@ -8,6 +8,14 @@ export type ApiResponse<T> = {
   };
 };
 
+export type AcademicBlock = {
+  block_name: string;
+  block_type: 'EXAM' | 'TEST_WEEK' | 'RECESS' | 'HOLIDAY';
+  start_date: string;
+  end_date: string;
+  severity_level: 3;
+};
+
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5002/api';
 
 export async function apiRequest<T>(

@@ -5,6 +5,8 @@ import CategoryFilter from '@/components/CategoryFilter';
 import EventCard from '@/components/EventCard';
 import { CustomButton } from '@/components/CustomButton';
 import { apiRequest } from '@/lib/api';
+import Link from 'next/link';
+import { useAuth } from '@/context/AuthContext';
 
 interface Event {
   id: string;
@@ -18,6 +20,7 @@ interface Event {
 }
 
 export default function HomePage() {
+  const { user } = useAuth();
   const [events, setEvents] = useState<Event[]>([]);
   const [search, setSearch] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('All');
@@ -69,6 +72,11 @@ export default function HomePage() {
           <CustomButton variant="primary" className="w-full sm:w-auto">
             Search
           </CustomButton>
+          {user?.role === 'society' ? (
+            <Link href="/events/create" className="secondary-button inline-flex items-center justify-center">
+              Create event
+            </Link>
+          ) : null}
         </div>
       </section>
 
