@@ -119,32 +119,18 @@ app.get('/api/academic-blocks', (_req, res) => {
   });
 });
 
-function listenOnAvailablePort(port: number) {
-  return new Promise<number>((resolve, reject) => {
-    const tryPort = (candidate: number) => {
-      const server = app.listen(candidate, () => {
-        resolve(candidate);
-      });
-
-      server.on('error', (error: NodeJS.ErrnoException) => {
-        if (error.code === 'EADDRINUSE') {
-          if (candidate >= port + 9) {
-            reject(new Error(`No free port found starting from ${port}`));
-            return;
-          }
-          tryPort(candidate + 1);
-          return;
-        }
-
-        reject(error);
-      });
-    };
-
-    tryPort(port);
-  });
-}
-
 async function startServer() {
+  const port = Number(process.env.PORT || DEFAULT_PORT);
+
+  const server = app.listen(port, '0.0.0.0', () => {
+    console.log(`Server running on http://0.0.0.0:${port}`);
+  });
+
+  server.on('error', (error: NodeJS.ErrnoException) => {
+    console.error('Failed to bind server port:', error);
+    process.exit(1);
+  });
+
   try {
     await pool.query('SELECT 1');
     await initDatabase();
@@ -156,9 +142,6 @@ async function startServer() {
       process.exit(1);
     }
   }
-
-  const actualPort = await listenOnAvailablePort(DEFAULT_PORT);
-  console.log(`Server running on http://localhost:${actualPort}`);
 }
 
 startServer();
