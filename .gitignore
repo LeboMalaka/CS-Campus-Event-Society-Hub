@@ -1,0 +1,12 @@
+node_modules
+.next
+out
+.env
+.env.local
+.env.*.local
+apps/frontend/.next
+apps/frontend/node_modules
+apps/backend/node_modules
+apps/backend/dist
+npm-debug.log*
+.DS_Store
