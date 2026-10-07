@@ -32,6 +32,7 @@ const configuredOrigins = [process.env.CLIENT_URL, process.env.CORS_ORIGINS]
 configuredOrigins.push(
   'https://cs-campus-event-society-hub-oecu.vercel.app',
   'https://cs-campus-event-society-hub-oecu-ci3d3lhqm-portfolio-94e2.vercel.app',
+  'https://cs-campus-event-society-hub-zyw6-augf5rds1-portfolio-94e2.vercel.app',
   'https://cs-campus-event-society-hub-1.onrender.com'
 );
 
@@ -61,7 +62,14 @@ const isAllowedOrigin = (origin: string | undefined) => {
       return true;
     }
 
-    if (normalizedHostname.endsWith('.vercel.app') || normalizedHostname.endsWith('.onrender.com')) {
+    const hostnameAllowlist = [
+      /(^|\.)vercel\.app$/i,
+      /(^|\.)onrender\.com$/i,
+      /^localhost$/i,
+      /^127\.0\.0\.1$/i,
+    ];
+
+    if (hostnameAllowlist.some((pattern) => pattern.test(normalizedHostname))) {
       return true;
     }
 
