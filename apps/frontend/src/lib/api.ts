@@ -16,7 +16,20 @@ export type AcademicBlock = {
   severity_level: 3;
 };
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5002/api';
+const configuredApiUrl = (process.env.NEXT_PUBLIC_API_URL?.trim() || 'http://localhost:5002/api').trim();
+const API_BASE_URL = (() => {
+  const noTrailingSlash = configuredApiUrl.replace(/\/+$/, '');
+
+  if (!noTrailingSlash) {
+    return 'http://localhost:5002/api';
+  }
+
+  if (/\/api$/i.test(noTrailingSlash)) {
+    return noTrailingSlash;
+  }
+
+  return `${noTrailingSlash}/api`;
+})();
 
 export async function apiRequest<T>(
   endpoint: string,
@@ -33,17 +46,30 @@ export async function apiRequest<T>(
     headers.set('Authorization', `Bearer ${token}`);
   }
 
-  const response = await fetch(`${API_BASE_URL}${endpoint}`, {
-    ...options,
-    headers,
-    cache: 'no-store',
-  });
+  const normalizedEndpoint = endpoint.replace(/^\/+/, '');
+  const requestUrl = /^https?:\/\//i.test(normalizedEndpoint)
+    ? normalizedEndpoint
+    : new URL(normalizedEndpoint, `${API_BASE_URL.replace(/\/+$/, '')}/`).toString();
 
-  const payload = await response.json().catch(() => ({}));
+  try {
+    const response = await fetch(requestUrl, {
+      ...options,
+      headers,
+      cache: 'no-store',
+    });
 
-  if (!response.ok) {
-    throw new Error(payload?.error?.message || 'Request failed');
+    const payload = await response.json().catch(() => ({}));
+
+    if (!response.ok) {
+      throw new Error(payload?.error?.message || 'Request failed');
+    }
+
+    return payload as T;
+  } catch (error) {
+    if (error instanceof Error && error.message) {
+      throw new Error(error.message);
+    }
+
+    throw new Error('Unable to reach the Campus Hub API. Make sure the backend is running and the API URL is configured correctly.');
   }
-
-  return payload as T;
 }

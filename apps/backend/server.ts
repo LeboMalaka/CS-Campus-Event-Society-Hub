@@ -13,29 +13,71 @@ dotenv.config();
 
 const app = express();
 const DEFAULT_PORT = Number(process.env.PORT || 5002);
-const allowedOrigins = new Set([
-  process.env.CLIENT_URL,
-  'http://localhost:3000',
-  'http://localhost:3001',
-  'http://localhost:3002',
-  'http://localhost:3003',
-  'http://127.0.0.1:3000',
-  'http://127.0.0.1:3001',
-  'http://127.0.0.1:3002',
-  'http://127.0.0.1:3003',
-].filter(Boolean));
+const configuredOrigins = [process.env.CLIENT_URL, process.env.CORS_ORIGINS]
+  .filter(Boolean)
+  .flatMap((value) => value!.split(','))
+  .map((value) => {
+    const trimmed = value.trim();
+    if (!trimmed) return null;
+
+    try {
+      return new URL(trimmed).origin;
+    } catch {
+      console.warn(`Ignoring invalid CORS origin: ${trimmed}`);
+      return null;
+    }
+  })
+  .filter((origin): origin is string => origin !== null);
+
+configuredOrigins.push(
+  'https://cs-campus-event-society-hub-oecu.vercel.app',
+  'https://cs-campus-event-society-hub-oecu-ci3d3lhqm-portfolio-94e2.vercel.app',
+  'https://cs-campus-event-society-hub-1.onrender.com'
+);
+
+if (process.env.NODE_ENV !== 'production') {
+  configuredOrigins.push(
+    'http://localhost:3000',
+    'http://localhost:3001',
+    'http://localhost:3002',
+    'http://localhost:3003',
+    'http://127.0.0.1:3000',
+    'http://127.0.0.1:3001',
+    'http://127.0.0.1:3002',
+    'http://127.0.0.1:3003'
+  );
+}
+
+const allowedOrigins = new Set(configuredOrigins);
+
+const isAllowedOrigin = (origin: string | undefined) => {
+  if (!origin) return true;
+
+  try {
+    const { hostname, origin: requestOrigin } = new URL(origin);
+    const normalizedHostname = hostname.toLowerCase();
+
+    if (allowedOrigins.has(requestOrigin)) {
+      return true;
+    }
+
+    if (normalizedHostname.endsWith('.vercel.app') || normalizedHostname.endsWith('.onrender.com')) {
+      return true;
+    }
+
+    return false;
+  } catch {
+    return false;
+  }
+};
 
 app.use(
   cors({
     origin: (origin, callback) => {
-      if (!origin || allowedOrigins.has(origin)) {
-        callback(null, true);
-        return;
-      }
-
-      callback(new Error('CORS origin not allowed'));
+      callback(null, isAllowedOrigin(origin));
     },
     credentials: true,
+    maxAge: 86400,
   })
 );
 app.use(express.json());
