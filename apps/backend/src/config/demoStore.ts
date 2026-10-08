@@ -1,7 +1,7 @@
 import bcrypt from 'bcryptjs';
 import { categorizeEvent } from './eventCategories.js';
 
-export type DemoRole = 'student' | 'society';
+export type DemoRole = 'student' | 'society_admin';
 
 export type DemoUser = {
   id: string;
@@ -36,10 +36,10 @@ const now = () => new Date().toISOString();
 export const demoUsers: DemoUser[] = [
   {
     id: 'demo-society-1',
-    email: 'society@campus.edu',
+    email: 'tutu@gmail.com',
     password_hash: bcrypt.hashSync('demo123', 10),
-    role: 'society',
-    display_name: 'Campus Tech Society',
+    role: 'society_admin',
+    display_name: 'Tutu Admin',
     created_at: now(),
   },
   {

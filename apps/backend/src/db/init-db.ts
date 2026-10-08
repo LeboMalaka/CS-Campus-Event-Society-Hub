@@ -1,5 +1,6 @@
 import pg from 'pg';
 import dotenv from 'dotenv';
+import bcrypt from 'bcryptjs';
 import { categorizeEvent } from '../config/eventCategories.js';
 
 dotenv.config();
@@ -34,6 +35,32 @@ export async function initDatabase() {
       await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS display_name VARCHAR(255);`);
       await pool.query(`UPDATE users SET display_name = COALESCE(display_name, full_name, email) WHERE display_name IS NULL;`);
     }
+
+    if (!userColumnNames.has('role')) {
+      await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS role VARCHAR(30) NOT NULL DEFAULT 'student';`);
+    }
+
+    await pool.query(`
+      UPDATE users
+      SET role = CASE
+        WHEN role = 'society' THEN 'society_admin'
+        WHEN role IS NULL OR role = '' THEN 'student'
+        ELSE role
+      END
+      WHERE role IS NULL OR role = '' OR role = 'society';
+    `);
+
+    const adminEmail = 'tutu@gmail.com';
+    const adminPasswordHash = await bcrypt.hash('demo123', 10);
+    await pool.query(
+      `INSERT INTO users (full_name, display_name, email, password_hash, role)
+       VALUES ($1, $2, $3, $4, 'society_admin')
+       ON CONFLICT (email) DO UPDATE SET
+         display_name = EXCLUDED.display_name,
+         password_hash = EXCLUDED.password_hash,
+         role = 'society_admin'`,
+      ['Society Admin', 'Society Admin', adminEmail, adminPasswordHash]
+    );
 
     if (!eventColumnNames.has('creator_id')) {
       await pool.query(`ALTER TABLE events ADD COLUMN IF NOT EXISTS creator_id INTEGER;`);

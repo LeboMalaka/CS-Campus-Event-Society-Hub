@@ -48,7 +48,7 @@ export default function CreateEventPage() {
   const minimumDateTime = getDateTimeMinimum();
   const overlappingBlocks = getAcademicBlocksForEvent(academicBlocks, form.startTime, form.endTime);
 
-  const canCreate = useMemo(() => !!user && user.role === 'society', [user]);
+  const canCreate = useMemo(() => !!user && user.role === 'society_admin', [user]);
 
   useEffect(() => {
     apiRequest<ApiResponse<AcademicBlock[]>>('/academic-blocks')

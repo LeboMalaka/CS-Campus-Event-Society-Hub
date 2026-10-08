@@ -205,8 +205,8 @@ router.get('/my-events', verifyTokenMiddleware, authorizeRole(['student']), asyn
   }
 });
 
-// GET /api/rsvps/event/:eventId - List attendees (Society Owner only)
-router.get('/event/:eventId', verifyTokenMiddleware, authorizeRole(['society']), async (req: AuthenticatedRequest, res) => {
+// GET /api/rsvps/event/:eventId - List attendees (Society Admin Owner only)
+router.get('/event/:eventId', verifyTokenMiddleware, authorizeRole(['society_admin']), async (req: AuthenticatedRequest, res) => {
   const { eventId } = req.params;
 
   try {

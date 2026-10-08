@@ -10,7 +10,7 @@ export default function RegisterPage() {
   const { register } = useAuth();
   const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
-  const [role, setRole] = useState<'student' | 'society'>('student');
+  const [role, setRole] = useState<'student' | 'society_admin'>('student');
   const [password, setPassword] = useState('');
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
@@ -22,9 +22,9 @@ export default function RegisterPage() {
 
     try {
       await register(fullName, email, password, role);
-      const roleLabel = role === 'society' ? 'Society' : 'Student';
+      const roleLabel = role === 'society_admin' ? 'Society Admin' : 'Student';
       setMessage(`${fullName || 'New user'} registered as ${roleLabel}. Redirecting...`);
-      router.push(role === 'society' ? '/dashboard' : '/my-events');
+      router.push(role === 'society_admin' ? '/dashboard' : '/my-events');
     } catch (submitError) {
       setError(submitError instanceof Error ? submitError.message : 'Unable to create account.');
     }
@@ -68,11 +68,11 @@ export default function RegisterPage() {
               <label className="mb-2 block text-sm font-medium text-slate-200">Role</label>
               <select
                 value={role}
-                onChange={(e) => setRole(e.target.value as 'student' | 'society')}
+                onChange={(e) => setRole(e.target.value as 'student' | 'society_admin')}
                 className="w-full rounded-xl border border-violet-500/20 bg-[#111218] px-4 py-3 text-white focus:border-violet-400 focus:outline-none"
               >
                 <option value="student">Student</option>
-                <option value="society">Society</option>
+                <option value="society_admin">Society Admin</option>
               </select>
             </div>
 

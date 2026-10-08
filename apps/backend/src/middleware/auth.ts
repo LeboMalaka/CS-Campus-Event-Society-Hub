@@ -1,12 +1,26 @@
 import { Request, Response, NextFunction } from 'express';
-import { verifyToken } from '../utils/jwt.js';
+import { verifyToken, UserRole } from '../utils/jwt.js';
 
 export interface AuthenticatedRequest extends Request {
   user?: {
     id: string;
     email: string;
-    role: 'student' | 'society';
+    role: UserRole;
   };
+}
+
+const ADMIN_EMAIL = 'tutu@gmail.com';
+
+export function normalizeRole(role: string | undefined): UserRole {
+  const normalized = role?.toLowerCase();
+  if (normalized === 'society' || normalized === 'society_admin') {
+    return 'society_admin';
+  }
+  return 'student';
+}
+
+function isAllowedSocietyAdmin(email: string | undefined) {
+  return typeof email === 'string' && email.trim().toLowerCase() === ADMIN_EMAIL;
 }
 
 export function verifyTokenMiddleware(req: AuthenticatedRequest, res: Response, next: NextFunction) {
@@ -42,7 +56,7 @@ export function verifyTokenMiddleware(req: AuthenticatedRequest, res: Response, 
   }
 }
 
-export function authorizeRole(allowedRoles: ('student' | 'society')[]) {
+export function authorizeRole(allowedRoles: UserRole[]) {
   return (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
     if (!req.user) {
       return res.status(401).json({
@@ -54,7 +68,18 @@ export function authorizeRole(allowedRoles: ('student' | 'society')[]) {
       });
     }
 
-    if (!allowedRoles.includes(req.user.role.toLowerCase() as 'student' | 'society')) {
+    const normalizedUserRole = normalizeRole(req.user.role);
+    if (normalizedUserRole === 'society_admin' && !isAllowedSocietyAdmin(req.user.email)) {
+      return res.status(403).json({
+        success: false,
+        error: {
+          code: 'FORBIDDEN',
+          message: 'Only tutu@gmail.com may act as Society Admin.',
+        },
+      });
+    }
+
+    if (!allowedRoles.includes(normalizedUserRole)) {
       return res.status(403).json({
         success: false,
         error: {
@@ -64,6 +89,7 @@ export function authorizeRole(allowedRoles: ('student' | 'society')[]) {
       });
     }
 
+    req.user.role = normalizedUserRole;
     return next();
   };
 }

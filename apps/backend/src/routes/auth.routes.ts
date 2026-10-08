@@ -9,11 +9,26 @@ import {
 import { signToken } from '../utils/jwt.js';
 
 const router = Router();
+const ADMIN_EMAIL = 'tutu@gmail.com';
+
+const normalizeUserRole = (role: unknown) => {
+  const value = typeof role === 'string' ? role.toLowerCase() : '';
+  if (value === 'society' || value === 'society_admin') {
+    return 'society_admin';
+  }
+  if (value === 'student') {
+    return 'student';
+  }
+  return null;
+};
+
+const isAllowedSocietyAdmin = (email: string | undefined | null) =>
+  typeof email === 'string' && email.trim().toLowerCase() === ADMIN_EMAIL;
 
 router.post('/register', async (req, res) => {
   const { fullName, displayName, email, password, role } = req.body;
   const normalizedFullName = fullName ?? displayName;
-  const normalizedRole = typeof role === 'string' ? role.toLowerCase() : role;
+  const normalizedRole = normalizeUserRole(role);
 
   if (!normalizedFullName || !email || !password || !normalizedRole) {
     return res.status(400).json({
@@ -25,12 +40,22 @@ router.post('/register', async (req, res) => {
     });
   }
 
-  if (!['student', 'society'].includes(normalizedRole)) {
+  if (!['student', 'society_admin'].includes(normalizedRole)) {
     return res.status(400).json({
       success: false,
       error: {
         code: 'INVALID_ROLE',
-        message: 'Role must be either student or society.',
+        message: 'Role must be either student or society_admin.',
+      },
+    });
+  }
+
+  if (normalizedRole === 'society_admin' && !isAllowedSocietyAdmin(email)) {
+    return res.status(401).json({
+      success: false,
+      error: {
+        code: 'INVALID_CREDENTIALS',
+        message: 'Invalid Credentials',
       },
     });
   }
@@ -119,7 +144,18 @@ router.post('/register', async (req, res) => {
 });
 
 router.post('/login', async (req, res) => {
-  const { email, password } = req.body;
+  const { email, password, expectedRole } = req.body;
+  const requestedRole = normalizeUserRole(expectedRole);
+
+  if (requestedRole === 'society_admin' && !isAllowedSocietyAdmin(email)) {
+    return res.status(401).json({
+      success: false,
+      error: {
+        code: 'INVALID_CREDENTIALS',
+        message: 'Invalid Credentials',
+      },
+    });
+  }
 
   if (!email || !password) {
     return res.status(400).json({
@@ -184,10 +220,31 @@ router.post('/login', async (req, res) => {
       });
     }
 
+    const normalizedUserRole = normalizeUserRole(user.role) ?? 'student';
+    if (normalizedUserRole === 'society_admin' && !isAllowedSocietyAdmin(user.email)) {
+      return res.status(401).json({
+        success: false,
+        error: {
+          code: 'INVALID_CREDENTIALS',
+          message: 'Invalid Credentials',
+        },
+      });
+    }
+
+    if (requestedRole && normalizedUserRole !== requestedRole) {
+      return res.status(403).json({
+        success: false,
+        error: {
+          code: 'ROLE_MISMATCH',
+          message: `This account is registered as a ${normalizedUserRole === 'society_admin' ? 'society_admin' : 'student'}, not a ${requestedRole}.`,
+        },
+      });
+    }
+
     const token = signToken({
       id: String(user.id),
       email: user.email,
-      role: user.role,
+      role: normalizedUserRole,
     });
 
     return res.status(200).json({

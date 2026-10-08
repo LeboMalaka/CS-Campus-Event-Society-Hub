@@ -55,7 +55,7 @@ export default function EventsPage() {
           <p className="text-xs font-semibold uppercase tracking-[0.28em] text-violet-300">Browse</p>
           <h1 className="mt-2 text-3xl font-bold text-white">All events</h1>
         </div>
-        {user?.role === 'society' ? (
+        {user?.role === 'society_admin' ? (
           <Link href="/events/create" className="primary-button inline-flex items-center justify-center">
             Create event
           </Link>

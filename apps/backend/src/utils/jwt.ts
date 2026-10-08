@@ -1,12 +1,14 @@
 import jwt, { SignOptions } from 'jsonwebtoken';
 
+export type UserRole = 'student' | 'society_admin';
+
 export type TokenPayload = {
   id: string;
   email: string;
-  role: 'student' | 'society';
+  role: UserRole;
 };
 
-export function signToken(user: { id: string; email: string; role: 'student' | 'society' }) {
+export function signToken(user: { id: string; email: string; role: UserRole }) {
   const secret = process.env.JWT_SECRET;
 
   if (!secret) {
