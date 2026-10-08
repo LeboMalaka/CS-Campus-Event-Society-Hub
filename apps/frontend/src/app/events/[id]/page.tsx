@@ -206,7 +206,7 @@ export default function EventDetailsPage() {
               </div>
             )}
 
-            {user?.role === 'society' && String(user.id) === String(event.creator_id) ? (
+            {user?.role === 'society_admin' && String(user.id) === String(event.creator_id) ? (
               <CustomButton
                 variant="secondary"
                 className="mt-3 w-full border-red-500/40 text-red-300 hover:border-red-400 hover:text-red-200"

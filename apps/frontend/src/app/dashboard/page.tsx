@@ -94,7 +94,7 @@ export default function DashboardPage() {
     }
   }, [user]);
 
-  if (!user || user.role !== 'society') {
+  if (!user || user.role !== 'society_admin') {
     return (
       <main className="mx-auto max-w-6xl px-4 py-12 text-center">
         <p className="text-xl font-semibold text-white">Access denied. This area is for Society Admins only.</p>

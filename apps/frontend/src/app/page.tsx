@@ -72,7 +72,7 @@ export default function HomePage() {
           <CustomButton variant="primary" className="w-full sm:w-auto">
             Search
           </CustomButton>
-          {user?.role === 'society' ? (
+          {user?.role === 'society_admin' ? (
             <Link href="/events/create" className="secondary-button inline-flex items-center justify-center">
               Create event
             </Link>

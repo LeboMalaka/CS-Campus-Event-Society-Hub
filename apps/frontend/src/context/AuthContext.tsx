@@ -7,14 +7,14 @@ export type User = {
   id: string;
   displayName: string;
   email: string;
-  role: 'student' | 'society';
+  role: 'student' | 'society_admin';
 };
 
 type AuthContextValue = {
   user: User | null;
   status: 'loading' | 'ready';
-  login: (email: string, password: string, expectedRole?: 'student' | 'society') => Promise<void>;
-  register: (displayName: string, email: string, password: string, role: 'student' | 'society') => Promise<void>;
+  login: (email: string, password: string, expectedRole?: 'student' | 'society_admin') => Promise<void>;
+  register: (displayName: string, email: string, password: string, role: 'student' | 'society_admin') => Promise<void>;
   logout: () => void;
 };
 
@@ -39,12 +39,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   }, []);
 
-  const login = async (email: string, password: string, expectedRole?: 'student' | 'society') => {
+  const login = async (email: string, password: string, expectedRole?: 'student' | 'society_admin') => {
     const response = await apiRequest<{ data: { user: User; token: string } }>(
       '/auth/login',
       {
         method: 'POST',
-        body: JSON.stringify({ email, password }),
+        body: JSON.stringify({ email, password, expectedRole }),
       }
     );
 
@@ -68,7 +68,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     displayName: string,
     email: string,
     password: string,
-    role: 'student' | 'society'
+    role: 'student' | 'society_admin'
   ) => {
     const response = await apiRequest<{ data: { user: User; token: string } }>(
       '/auth/register',

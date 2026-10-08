@@ -144,8 +144,8 @@ router.get('/:id', async (req, res) => {
   }
 });
 
-// POST /api/events - Create event (Society only)
-router.post('/', verifyTokenMiddleware, authorizeRole(['society']), async (req: AuthenticatedRequest, res) => {
+// POST /api/events - Create event (Society Admin only)
+router.post('/', verifyTokenMiddleware, authorizeRole(['society_admin']), async (req: AuthenticatedRequest, res) => {
   const {
     title,
     description,
@@ -259,8 +259,8 @@ router.post('/', verifyTokenMiddleware, authorizeRole(['society']), async (req: 
   }
 });
 
-// PUT /api/events/:id - Update event (Society Owner only)
-router.put('/:id', verifyTokenMiddleware, authorizeRole(['society']), async (req: AuthenticatedRequest, res) => {
+// PUT /api/events/:id - Update event (Society Admin Owner only)
+router.put('/:id', verifyTokenMiddleware, authorizeRole(['society_admin']), async (req: AuthenticatedRequest, res) => {
   const { id } = req.params;
   const { title, description, category, startTime, endTime, location } = req.body;
   const normalizedCategory = category ? categorizeEvent(title || '', description || '', category) : undefined;
@@ -326,8 +326,8 @@ router.put('/:id', verifyTokenMiddleware, authorizeRole(['society']), async (req
   }
 });
 
-// DELETE /api/events/:id - Delete event (Society Owner only)
-router.delete('/:id', verifyTokenMiddleware, authorizeRole(['society']), async (req: AuthenticatedRequest, res) => {
+// DELETE /api/events/:id - Delete event (Society Admin Owner only)
+router.delete('/:id', verifyTokenMiddleware, authorizeRole(['society_admin']), async (req: AuthenticatedRequest, res) => {
   const { id } = req.params;
 
   try {

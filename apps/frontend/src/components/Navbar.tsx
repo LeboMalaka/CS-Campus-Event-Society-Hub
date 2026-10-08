@@ -18,7 +18,7 @@ export default function Navbar() {
       return baseLinks;
     }
 
-    if (user.role === 'society') {
+    if (user.role === 'society_admin') {
       return [
         ...baseLinks,
         { label: 'Dashboard', href: '/dashboard' },
@@ -75,9 +75,9 @@ export default function Navbar() {
           {user ? (
             <>
               <span className="hidden rounded-full border border-violet-500/40 bg-violet-500/10 px-3 py-1 text-[11px] font-medium uppercase tracking-[0.18em] text-violet-200 sm:inline-flex">
-                {user.role === 'society' ? 'Society' : 'Student'}
+                {user.role === 'society_admin' ? 'Society Admin' : 'Student'}
               </span>
-              <Link href={user.role === 'society' ? '/dashboard' : '/my-events'}>
+              <Link href={user.role === 'society_admin' ? '/dashboard' : '/my-events'}>
                 <CustomButton variant="primary" size="sm">
                   Profile
                 </CustomButton>
